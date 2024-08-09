@@ -1,95 +1,177 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useState } from "react";
+import { Box, Stack, TextField, Button } from "@mui/material";
+import { PieChartIcon } from "@radix-ui/react-icons";
 
 export default function Home() {
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content: `Hi I'm the Headstarter Support Agent, how can I assist you Today?`,
+    },
+  ]);
+  const [message, setMessage] = useState("");
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Function to handle sending messages in the chat
+  const sendMessage = async () => {
+    setMessage("");
+    setMessages((messages) => [
+      ...messages,
+      { role: "user", content: message },
+      { role: "assistant", content: "" },
+    ]);
+    const response = fetch("api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([...messages, { role: "user", content: message }]),
+    }).then(async (res) => {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      let result = "";
+      return reader.read().then(function processText({ done, value }) {
+        if (done) {
+          return result;
+        }
+        const text = decoder.decode(value || new Int8Array(), { stream: true });
+        setMessages((messages) => {
+          let lastMessage = messages[messages.length - 1];
+          let otherMessages = messages.slice(0, messages.length - 1);
+          return [
+            ...otherMessages,
+            {
+              ...lastMessage,
+              content: lastMessage.content + text,
+            },
+          ];
+        });
+        return reader.read().then(processText);
+      });
+    });
+  };
+
+  // Function to handle creating an index and embeddings
+  async function createIndexAndEmbeddings() {
+    try {
+      const result = await fetch('/api/setup', {
+        method: "POST"
+      });
+      const json = await result.json();
+      console.log('result: ', json);
+    } catch (err) {
+      console.log('err:', err);
+    }
+  }
+
+  // Function to handle sending a query to the backend
+  async function sendQuery() {
+    if (!query) return;
+    setResult('');
+    setLoading(true);
+    try {
+      const result = await fetch('/api/read', {
+        method: "POST",
+        body: JSON.stringify(query)
+      });
+      const json = await result.json();
+      setResult(json.data);
+      setLoading(false);
+    } catch (err) {
+      console.log('err:', err);
+      setLoading(false);
+    }
+  }
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>app/page.js</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <Box
+      width="100vw"
+      height="100vh"
+      display="flex"
+      flexDirection="column"
+      justifyContent="center"
+      alignItems="center"
+      p={4} // Adding padding to ensure content doesn't touch edges
+    >
+      <Stack
+        direction="column"
+        width="600px"
+        height="auto" // Adjusting height to be dynamic based on content
+        border="1px solid black"
+        p={2}
+        spacing={3}
+      >
+        <Stack
+          direction="column"
+          spacing={2}
+          flexGrow={1}
+          overflow="auto"
+          maxHeight="50vh" // Limiting chat height to allow space for other buttons
+        >
+          {messages.map((message, index) => (
+            <Box
+              key={index}
+              display="flex"
+              justifyContent={
+                message.role === "assistant" ? "flex-start" : "flex-end"
+              }
+            >
+              <Box
+                bgcolor={
+                  message.role === "assistant"
+                    ? "primary.main"
+                    : "secondary.main"
+                }
+                color="white"
+                borderRadius={16}
+                p={3}
+              >
+                {message.content}
+              </Box>
+            </Box>
+          ))}
+        </Stack>
+        <Stack direction="row" spacing={2}>
+          <TextField
+            label="message"
+            fullWidth
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <Button variant="contained" onClick={sendMessage}>
+            Send
+          </Button>
+        </Stack>
+
+        <Stack direction="column" spacing={2} mt={4}>
+          <TextField
+            label="Query"
+            fullWidth
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <Button variant="contained" onClick={sendQuery}>
+            Ask AI
+          </Button>
+          {loading && <PieChartIcon className="my-5 w-8 h-8 animate-spin" />}
+          {result && (
+            <Box className="my-8 border p-4 rounded">
+              {result}
+            </Box>
+          )}
+          <Button
+            variant="outlined"
+            onClick={createIndexAndEmbeddings}
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+            Create Index and Embeddings
+          </Button>
+        </Stack>
+      </Stack>
+    </Box>
   );
 }
