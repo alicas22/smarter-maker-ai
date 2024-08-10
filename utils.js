@@ -55,10 +55,10 @@ export const updatePinecone = async (client, indexName, docs) => {
       if (batch.length === batchSize || idx === chunks.length - 1) {
         console.log("Upserting the following batch of vectors:", batch);
 
-        await index.upsert({
-            vectors: batch,
-          });
-          
+        // await index.upsert({
+        //     vectors: batch,
+        //   });
+        await index.upsert(batch);
         //empty the batch
         batch = [];
       }
