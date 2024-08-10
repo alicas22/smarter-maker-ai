@@ -6,13 +6,20 @@ import {
 
 export async function POST(req) {
   const body = await req.json()
-  const client = new Pinecone({
-    apiKey: process.env.PINECONE_API_KEY || "",
-  });
+  console.log('body:', body);
 
-  const text = await queryPineconeVectorStoreAndQueryLLM(client, 'rag-ai', body)
+  // try {
+    const client = new Pinecone({
+      apiKey: process.env.PINECONE_API_KEY || "",
+    });
 
-  return NextResponse.json({
-    data: text
-  })
+    console.log('in post requestion for READ');
+
+    const text = await queryPineconeVectorStoreAndQueryLLM(client, 'rag-ai', body)
+    console.log('POST /read - text:', text)
+
+    return NextResponse.json(text)
+  // } catch (error) {
+  //   return NextResponse.json({ error: error }, { status: 500 })
+  // }
 }

@@ -58,7 +58,7 @@ export const updatePinecone = async (client, indexName, docs) => {
         await index.upsert({
             vectors: batch,
           });
-          
+
         //empty the batch
         batch = [];
       }
@@ -106,5 +106,22 @@ export const queryPineconeVectorStoreAndQueryLLM = async (
   } else {
     // 11. if no matches, do not query GPT
     console.log(`No matches, OpenAI will not be queried`);
+
+    // return error;
   }
 };
+
+    // console.log('question:', question)
+    // const questionForOpenAI = [{ role: 'user', content: question }];
+    // console.log('questionForOpenAI:', questionForOpenAI);
+
+    // const res = await fetch('http://localhost:3000/api/chat', {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //   },
+    //   body: JSON.stringify(questionForOpenAI),
+    // });
+    // // console.log('json:', await res.json());
+    // // console.log('res:', await res.json());
+    // return res;
