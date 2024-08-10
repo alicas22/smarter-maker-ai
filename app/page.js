@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Box, Stack, TextField, Button } from "@mui/material";
+import { Box, Stack, TextField, Button, Typography, IconButton } from "@mui/material";
 import { PieChartIcon } from "@radix-ui/react-icons";
+import SendIcon from '@mui/icons-material/Send';
 
 export default function Home() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      content: `Hi I'm the Headstarter Support Agent, how can I assist you Today?`,
+      content: `Hi I'm the D&D Support Agent, how can I assist you today?`,
     },
   ]);
   const [message, setMessage] = useState("");
@@ -71,19 +72,79 @@ export default function Home() {
 
   // Function to handle sending a query to the backend
   async function sendQuery() {
+    const userQuery = { role: 'user', content: query };
+    // console.log('userQuery:', userQuery);
+    const newQueries = [ ...messages, userQuery, { role: "assistant", content: "" }];
+    // console.log('messages:', newQueries);
+    setMessages(newQueries);
+    setQuery('');
+
     if (!query) return;
+
     setResult('');
     setLoading(true);
+
     try {
-      const result = await fetch('/api/read', {
+      const res = await fetch('/api/read', {
         method: "POST",
-        body: JSON.stringify(query)
-      });
-      const json = await result.json();
-      setResult(json.data);
-      setLoading(false);
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(query),
+      })
+      // setLoading(false);
+      if (!res.ok) {
+        throw new Error(`Failed to retrieve response from /api/read: ${res.status}`);
+      }
     } catch (err) {
-      console.log('err:', err);
+      console.log('Failed to get response from /api/read, falling back to /api/chat:', err);
+      // setLoading(false);
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify([...messages, { role: "user", content: query }]),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to retrieve response from /api/chat: ${res.status}`);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let result = '';
+
+        await reader.read().then(function processText({ done, value }) {
+          if (done) {
+            setResult(result);
+            return;
+          }
+
+          const text = decoder.decode(value || new Int8Array(), { stream: true });
+          result += text;
+
+          setMessages((messages) => {
+            let lastMessage = messages[messages.length - 1];
+            let otherMessages = messages.slice(0, messages.length - 1);
+            return [
+              ...otherMessages,
+              {
+                ...lastMessage,
+                content: lastMessage.content + text,
+              },
+            ];
+          });
+
+
+          return reader.read().then(processText);
+        });
+      } catch (error) {
+        console.error('Failed to retrieve response from /api/chat:', error);
+      }
+    } finally {
       setLoading(false);
     }
   }
@@ -97,21 +158,28 @@ export default function Home() {
       justifyContent="center"
       alignItems="center"
       p={4} // Adding padding to ensure content doesn't touch edges
+      sx={{
+        background: 'linear-gradient(120deg, #2F4F4F, #36454F)',
+    // padding: 2,
+      }}
     >
       <Stack
         direction="column"
-        width="600px"
-        height="auto" // Adjusting height to be dynamic based on content
-        border="1px solid black"
-        p={2}
+        width="60vw"
+        height="80%" // Adjusting height to be dynamic based on content
+        sx={{
+          bgcolor: 'white',
+          borderRadius: 8,
+        }}
+        p={3}
         spacing={3}
+        justifyContent={'space-between'}
       >
         <Stack
           direction="column"
           spacing={2}
           flexGrow={1}
           overflow="auto"
-          maxHeight="50vh" // Limiting chat height to allow space for other buttons
         >
           {messages.map((message, index) => (
             <Box
@@ -122,21 +190,23 @@ export default function Home() {
               }
             >
               <Box
-                bgcolor={
-                  message.role === "assistant"
-                    ? "primary.main"
-                    : "secondary.main"
-                }
-                color="white"
-                borderRadius={16}
-                p={3}
+                sx={{
+                  bgcolor: message.role === 'assistant' ? 'primary.light' : 'secondary.main',
+                  color: message.role === 'assistant' ? 'primary.dark' : 'white',
+                  borderRadius: 4,
+                  p: 2,
+                  maxWidth: '75%',
+                }}
               >
-                {message.content}
+                <Typography
+                  dangerouslySetInnerHTML={{ __html: message.content }}
+                ></Typography>
+                {/* {message.content} */}
               </Box>
             </Box>
           ))}
         </Stack>
-        <Stack direction="row" spacing={2}>
+        {/* <Stack direction="row" spacing={2}>
           <TextField
             label="message"
             fullWidth
@@ -146,30 +216,46 @@ export default function Home() {
           <Button variant="contained" onClick={sendMessage}>
             Send
           </Button>
-        </Stack>
+        </Stack> */}
 
-        <Stack direction="column" spacing={2} mt={4}>
+        <Stack direction="row" spacing={2}>
           <TextField
-            label="Query"
+            label="Ask a question"
             fullWidth
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && sendQuery()}
           />
-          <Button variant="contained" onClick={sendQuery}>
-            Ask AI
-          </Button>
-          {loading && <PieChartIcon className="my-5 w-8 h-8 animate-spin" />}
-          {result && (
-            <Box className="my-8 border p-4 rounded">
-              {result}
-            </Box>
-          )}
-          <Button
+          <IconButton variant="contained"
+            onClick={sendQuery}
+            sx={{
+              bgcolor: 'primary.dark',
+              borderRadius: '50%',
+              width: '56px',
+              height: '56px',
+              aspectRatio: 1,
+              '&:hover': {
+                cursor: 'pointer',
+                backgroundColor: 'accent.main',
+                borderRadius: '50%',
+                color: 'primary.dark'
+              },
+              color: 'white'
+            }}
+          >
+              <SendIcon
+                sx={{
+                  color: 'inherit',
+                }}
+              />
+          </IconButton>
+          {/* we will not have this be customer facing */}
+          {/* <Button
             variant="outlined"
             onClick={createIndexAndEmbeddings}
           >
             Create Index and Embeddings
-          </Button>
+          </Button> */}
         </Stack>
       </Stack>
     </Box>
