@@ -73,9 +73,7 @@ export default function Home() {
   // Function to handle sending a query to the backend
   async function sendQuery() {
     const userQuery = { role: 'user', content: query };
-    // console.log('userQuery:', userQuery);
-    const newQueries = [ ...messages, userQuery, { role: "assistant", content: "" }];
-    // console.log('messages:', newQueries);
+    const newQueries = [...messages, userQuery, { role: "assistant", content: "" }];
     setMessages(newQueries);
     setQuery('');
 
@@ -85,32 +83,16 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/read', {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(query),
-      })
-      // setLoading(false);
-      if (!res.ok) {
-        throw new Error(`Failed to retrieve response from /api/read: ${res.status}`);
-      }
-    } catch (err) {
-      console.log('Failed to get response from /api/read, falling back to /api/chat:', err);
-      // setLoading(false);
-
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify([...messages, { role: "user", content: query }]),
+        const res = await fetch('/api/read', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query }), // Passing query as an object
         });
 
         if (!res.ok) {
-          throw new Error(`Failed to retrieve response from /api/chat: ${res.status}`);
+            throw new Error(`Failed to retrieve response from /api/read: ${res.status}`);
         }
 
         const reader = res.body.getReader();
@@ -118,36 +100,35 @@ export default function Home() {
         let result = '';
 
         await reader.read().then(function processText({ done, value }) {
-          if (done) {
-            setResult(result);
-            return;
-          }
+            if (done) {
+                setResult(result);
+                return;
+            }
 
-          const text = decoder.decode(value || new Int8Array(), { stream: true });
-          result += text;
+            const text = decoder.decode(value || new Int8Array(), { stream: true });
+            result += text;
 
-          setMessages((messages) => {
-            let lastMessage = messages[messages.length - 1];
-            let otherMessages = messages.slice(0, messages.length - 1);
-            return [
-              ...otherMessages,
-              {
-                ...lastMessage,
-                content: lastMessage.content + text,
-              },
-            ];
-          });
+            setMessages((messages) => {
+                let lastMessage = messages[messages.length - 1];
+                let otherMessages = messages.slice(0, messages.length - 1);
+                return [
+                    ...otherMessages,
+                    {
+                        ...lastMessage,
+                        content: lastMessage.content + text,
+                    },
+                ];
+            });
 
-
-          return reader.read().then(processText);
+            return reader.read().then(processText);
         });
-      } catch (error) {
-        console.error('Failed to retrieve response from /api/chat:', error);
-      }
+
+    } catch (err) {
+        console.error('Error during query process:', err);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  }
+}
 
   return (
     <Box
@@ -250,12 +231,12 @@ export default function Home() {
               />
           </IconButton>
           {/* we will not have this be customer facing */}
-          {/* <Button
+          <Button
             variant="outlined"
             onClick={createIndexAndEmbeddings}
           >
             Create Index and Embeddings
-          </Button> */}
+          </Button>
         </Stack>
       </Stack>
     </Box>
