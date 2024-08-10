@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { Box, Stack, TextField, Button, Typography, IconButton } from "@mui/material";
+import { useState, useEffect, useRef } from "react";
+import {
+  Box,
+  Stack,
+  TextField,
+  Button,
+  Typography,
+  IconButton,
+} from "@mui/material";
 import { PieChartIcon } from "@radix-ui/react-icons";
-import SendIcon from '@mui/icons-material/Send';
+import SendIcon from "@mui/icons-material/Send";
 
 export default function Home() {
   const [messages, setMessages] = useState([
@@ -16,6 +23,20 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+
+
+  // Reference to the messages container
+  const messagesEndRef = useRef(null);
+
+  // Function to scroll to the bottom of the messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Scroll to the bottom every time messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Function to handle sending messages in the chat
   const sendMessage = async () => {
@@ -60,75 +81,80 @@ export default function Home() {
   // Function to handle creating an index and embeddings
   async function createIndexAndEmbeddings() {
     try {
-      const result = await fetch('/api/setup', {
-        method: "POST"
+      const result = await fetch("/api/setup", {
+        method: "POST",
       });
       const json = await result.json();
-      console.log('result: ', json);
+      console.log("result: ", json);
     } catch (err) {
-      console.log('err:', err);
+      console.log("err:", err);
     }
   }
 
   // Function to handle sending a query to the backend
   async function sendQuery() {
-    const userQuery = { role: 'user', content: query };
-    const newQueries = [...messages, userQuery, { role: "assistant", content: "" }];
+    const userQuery = { role: "user", content: query };
+    const newQueries = [
+      ...messages,
+      userQuery,
+      { role: "assistant", content: "" },
+    ];
     setMessages(newQueries);
-    setQuery('');
+    setQuery("");
 
     if (!query) return;
 
-    setResult('');
+    setResult("");
     setLoading(true);
 
     try {
-        const res = await fetch('/api/read', {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ query }), // Passing query as an object
-        });
+      const res = await fetch("/api/read", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }), // Passing query as an object
+      });
 
-        if (!res.ok) {
-            throw new Error(`Failed to retrieve response from /api/read: ${res.status}`);
+      if (!res.ok) {
+        throw new Error(
+          `Failed to retrieve response from /api/read: ${res.status}`
+        );
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
+
+      await reader.read().then(function processText({ done, value }) {
+        if (done) {
+          setResult(result);
+          return;
         }
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let result = '';
+        const text = decoder.decode(value || new Int8Array(), { stream: true });
+        result += text;
 
-        await reader.read().then(function processText({ done, value }) {
-            if (done) {
-                setResult(result);
-                return;
-            }
-
-            const text = decoder.decode(value || new Int8Array(), { stream: true });
-            result += text;
-
-            setMessages((messages) => {
-                let lastMessage = messages[messages.length - 1];
-                let otherMessages = messages.slice(0, messages.length - 1);
-                return [
-                    ...otherMessages,
-                    {
-                        ...lastMessage,
-                        content: lastMessage.content + text,
-                    },
-                ];
-            });
-
-            return reader.read().then(processText);
+        setMessages((messages) => {
+          let lastMessage = messages[messages.length - 1];
+          let otherMessages = messages.slice(0, messages.length - 1);
+          return [
+            ...otherMessages,
+            {
+              ...lastMessage,
+              content: lastMessage.content + text,
+            },
+          ];
         });
 
+        return reader.read().then(processText);
+      });
     } catch (err) {
-        console.error('Error during query process:', err);
+      console.error("Error during query process:", err);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-}
+  }
 
   return (
     <Box
@@ -140,8 +166,8 @@ export default function Home() {
       alignItems="center"
       p={4} // Adding padding to ensure content doesn't touch edges
       sx={{
-        background: 'linear-gradient(120deg, #2F4F4F, #36454F)',
-    // padding: 2,
+        background: "linear-gradient(120deg, #2F4F4F, #36454F)",
+        // padding: 2,
       }}
     >
       <Stack
@@ -149,19 +175,14 @@ export default function Home() {
         width="60vw"
         height="80%" // Adjusting height to be dynamic based on content
         sx={{
-          bgcolor: 'white',
+          bgcolor: "white",
           borderRadius: 8,
         }}
         p={3}
         spacing={3}
-        justifyContent={'space-between'}
+        justifyContent={"space-between"}
       >
-        <Stack
-          direction="column"
-          spacing={2}
-          flexGrow={1}
-          overflow="auto"
-        >
+        <Stack direction="column" spacing={2} flexGrow={1} overflow="auto">
           {messages.map((message, index) => (
             <Box
               key={index}
@@ -172,11 +193,15 @@ export default function Home() {
             >
               <Box
                 sx={{
-                  bgcolor: message.role === 'assistant' ? 'primary.light' : 'secondary.main',
-                  color: message.role === 'assistant' ? 'primary.dark' : 'white',
+                  bgcolor:
+                    message.role === "assistant"
+                      ? "primary.light"
+                      : "secondary.main",
+                  color:
+                    message.role === "assistant" ? "primary.dark" : "white",
                   borderRadius: 4,
                   p: 2,
-                  maxWidth: '75%',
+                  maxWidth: "75%",
                 }}
               >
                 <Typography
@@ -186,6 +211,8 @@ export default function Home() {
               </Box>
             </Box>
           ))}
+          {/* This div is used to scroll to the latest message */}
+          <div ref={messagesEndRef} />
         </Stack>
         {/* <Stack direction="row" spacing={2}>
           <TextField
@@ -205,36 +232,34 @@ export default function Home() {
             fullWidth
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && sendQuery()}
+            onKeyPress={(e) => e.key === "Enter" && sendQuery()}
           />
-          <IconButton variant="contained"
+          <IconButton
+            variant="contained"
             onClick={sendQuery}
             sx={{
-              bgcolor: 'primary.dark',
-              borderRadius: '50%',
-              width: '56px',
-              height: '56px',
+              bgcolor: "primary.dark",
+              borderRadius: "50%",
+              width: "56px",
+              height: "56px",
               aspectRatio: 1,
-              '&:hover': {
-                cursor: 'pointer',
-                backgroundColor: 'accent.main',
-                borderRadius: '50%',
-                color: 'primary.dark'
+              "&:hover": {
+                cursor: "pointer",
+                backgroundColor: "accent.main",
+                borderRadius: "50%",
+                color: "primary.dark",
               },
-              color: 'white'
+              color: "white",
             }}
           >
-              <SendIcon
-                sx={{
-                  color: 'inherit',
-                }}
-              />
+            <SendIcon
+              sx={{
+                color: "inherit",
+              }}
+            />
           </IconButton>
           {/* we will not have this be customer facing */}
-          <Button
-            variant="outlined"
-            onClick={createIndexAndEmbeddings}
-          >
+          <Button variant="outlined" onClick={createIndexAndEmbeddings}>
             Create Index and Embeddings
           </Button>
         </Stack>

@@ -13,9 +13,10 @@ export async function POST(req) {
       apiKey: process.env.PINECONE_API_KEY || "",
     });
 
-    console.log('in post requestion for READ');
-
-    const text = await queryPineconeVectorStoreAndQueryLLM(client, 'rag-ai', body)
+    console.log('in post requisition for READ');
+    const query = body.query;
+    console.log('type of query: '+ typeof(query))
+    const text = await queryPineconeVectorStoreAndQueryLLM(client, 'rag-ai', query)
     console.log('POST /read - text:', text)
 
     return NextResponse.json(text)

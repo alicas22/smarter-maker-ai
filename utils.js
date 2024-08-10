@@ -48,8 +48,8 @@ export const updatePinecone = async (client, indexName, docs) => {
           txtPat: txtPath,
         },
       };
-    //   batch = [...batch, vector];
-    batch.push(vector);
+      //   batch = [...batch, vector];
+      batch.push(vector);
 
       // when batch is full or it is the last item, upsert the vectors
       if (batch.length === batchSize || idx === chunks.length - 1) {
@@ -77,7 +77,7 @@ export const queryPineconeVectorStoreAndQueryLLM = async (
   const queryEmbedding = await new OpenAIEmbeddings().embedQuery(question);
   // 4. query Pinecone index and return top 10 matches
   let queryResponse = await index.query({
-    topK: 10,
+    topK: 50,
     vector: queryEmbedding,
     includeMetadata: true,
     includeValues: true,
@@ -98,9 +98,16 @@ export const queryPineconeVectorStoreAndQueryLLM = async (
       input_documents: [new Document({ pageContent: concatenatedPageContent })],
       question: question,
     });
-    //10. log the answer
-    console.log(`Answer: ${result.text}`);
-    return result.text;
+    //10. clean and log the answer
+    const cleanText = result.text
+      .replace(/\\n/g, ' ')        // Replace newline characters with a space
+      .replace(/\\"/g, '')         // Remove escaped quotes
+      .replace(/\\/g, '')          // Remove any remaining slashes
+      .replace(/^"|"$/g, '')       // Remove quotes at the start and end of the string
+      .trim();                     // Remove leading/trailing whitespace
+
+    console.log(`Answer: ${cleanText}`);
+    return cleanText;
   } else {
     // 11. if no matches, do not query GPT
     console.log(`No matches, OpenAI will not be queried`);
@@ -109,17 +116,17 @@ export const queryPineconeVectorStoreAndQueryLLM = async (
   }
 };
 
-    // console.log('question:', question)
-    // const questionForOpenAI = [{ role: 'user', content: question }];
-    // console.log('questionForOpenAI:', questionForOpenAI);
+// console.log('question:', question)
+// const questionForOpenAI = [{ role: 'user', content: question }];
+// console.log('questionForOpenAI:', questionForOpenAI);
 
-    // const res = await fetch('http://localhost:3000/api/chat', {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify(questionForOpenAI),
-    // });
-    // // console.log('json:', await res.json());
-    // // console.log('res:', await res.json());
-    // return res;
+// const res = await fetch('http://localhost:3000/api/chat', {
+//   method: "POST",
+//   headers: {
+//     "Content-Type": "application/json",
+//   },
+//   body: JSON.stringify(questionForOpenAI),
+// });
+// // console.log('json:', await res.json());
+// // console.log('res:', await res.json());
+// return res;
